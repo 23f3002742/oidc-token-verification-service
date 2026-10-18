@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import jwt
+from jose import jwt, JWTError
 
 PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2okOHspNjgA+2rTLbeuY
@@ -13,15 +13,15 @@ SI6iyrYbKR0NEBSqq4XkadEjsCs4F1RncsS4LlgniT7GlkL9Mce3b0wGLs9/7ZIX
 dQIDAQAB
 -----END PUBLIC KEY-----"""
 
+PUBLIC_KEY = PUBLIC_KEY.replace("\\n", "\n").strip()
+
 ISSUER = "https://idp.exam.local"
 AUDIENCE = "tds-5c3cs6b5.apps.exam.local"
 
 app = FastAPI()
 
-
 class VerifyRequest(BaseModel):
     token: str
-
 
 @app.post("/verify")
 def verify(req: VerifyRequest):
@@ -32,7 +32,7 @@ def verify(req: VerifyRequest):
             algorithms=["RS256"],
             issuer=ISSUER,
             audience=AUDIENCE,
-            options={"require": ["exp", "iss", "aud"]},
+            options={"require_exp": True},
         )
         return {
             "valid": True,
@@ -40,5 +40,6 @@ def verify(req: VerifyRequest):
             "sub": claims.get("sub"),
             "aud": claims.get("aud"),
         }
-    except jwt.PyJWTError:
+    except JWTError as e:
+        print(f"JWT verification failed: {type(e).__name__}: {e}")
         return JSONResponse(status_code=401, content={"valid": False})
